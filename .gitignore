@@ -30,3 +30,16 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Build output: the local binary and the cross-compiled release artifacts
+/api-mock-go
+/dist/
+
+# npm wrapper artifacts. npm/ itself is tracked; what npm generates is not.
+node_modules/
+npm/node_modules/
+*.tgz
+package-lock.json
+
+# Go toolchain tarballs, if one was downloaded into the repo to bootstrap
+go*.tar.gz

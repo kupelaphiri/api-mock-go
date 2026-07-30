@@ -1,0 +1,26 @@
+[
+  {
+    "id": "p-1001",
+    "name": "Mechanical Keyboard",
+    "price": 129.99,
+    "currency": "USD",
+    "inStock": true,
+    "tags": ["peripherals", "input"]
+  },
+  {
+    "id": "p-1002",
+    "name": "27\" 4K Monitor",
+    "price": 399.0,
+    "currency": "USD",
+    "inStock": false,
+    "tags": ["displays"]
+  },
+  {
+    "id": "p-1003",
+    "name": "USB-C Dock",
+    "price": 89.5,
+    "currency": "USD",
+    "inStock": true,
+    "tags": ["peripherals", "power"]
+  }
+]

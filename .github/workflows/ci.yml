@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [Main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The mock server binds sockets and reads files, so it is worth
+        # exercising on every platform the npm package ships for.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+
+      - name: Check formatting
+        # Not on Windows: git may have checked files out with CRLF endings,
+        # which gofmt reports as a diff against its own LF output.
+        if: runner.os != 'Windows'
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - run: go vet ./...
+
+      - run: go test -race ./...
+
+  build:
+    name: cross-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+
+      - name: Cross-compile every released platform
+        run: bash scripts/build.sh
+
+      - name: Check the binary runs and reads the example spec
+        run: |
+          chmod +x dist/api-mock-go-linux-amd64
+          ./dist/api-mock-go-linux-amd64 --version
+          ./dist/api-mock-go-linux-amd64 --schema examples/openapi.yaml --routes
+          ./dist/api-mock-go-linux-amd64 --config examples/mocks.yaml --routes
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+          retention-days: 7
+
+  npm:
+    name: npm packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Assembles the launcher and every platform package, then smoke-tests the
+      # launcher by running it on this host.
+      - run: bash scripts/npm-pack.sh
+
+      - name: Check the launcher starts a server through npm
+        run: |
+          cd dist/npm/api-mock-go
+          mkdir -p node_modules/@api-mock-go
+          ln -s ../../../@api-mock-go/linux-amd64 node_modules/@api-mock-go/linux-amd64
+          node bin/api-mock-go.js --schema ../../../examples/openapi.yaml --port 3999 --quiet &
+          for _ in $(seq 1 20); do
+            curl -sf http://127.0.0.1:3999/__mock/routes >/dev/null && break
+            sleep 0.25
+          done
+          curl -sf http://127.0.0.1:3999/v1/posts | head -c 200
+          echo
+          kill %1

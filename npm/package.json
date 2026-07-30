@@ -1,0 +1,45 @@
+{
+  "name": "api-mock-go",
+  "version": "0.1.0",
+  "description": "Blazing-fast mock APIs from OpenAPI specs. A single Go binary, installed through npm.",
+  "keywords": [
+    "mock",
+    "mock-server",
+    "openapi",
+    "swagger",
+    "api",
+    "rest",
+    "testing",
+    "fixtures",
+    "go"
+  ],
+  "homepage": "https://github.com/kupelaphiri/api-mock-go#readme",
+  "bugs": {
+    "url": "https://github.com/kupelaphiri/api-mock-go/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kupelaphiri/api-mock-go.git"
+  },
+  "license": "MIT",
+  "author": "kupelaphiri",
+  "type": "commonjs",
+  "bin": {
+    "api-mock-go": "bin/api-mock-go.js"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "optionalDependencies": {
+    "@api-mock-go/darwin-amd64": "0.1.0",
+    "@api-mock-go/darwin-arm64": "0.1.0",
+    "@api-mock-go/linux-amd64": "0.1.0",
+    "@api-mock-go/linux-arm64": "0.1.0",
+    "@api-mock-go/windows-amd64": "0.1.0",
+    "@api-mock-go/windows-arm64": "0.1.0"
+  }
+}
