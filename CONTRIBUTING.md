@@ -132,7 +132,7 @@ bootstrap path rather than the destination, and switch to trusted publishing
 once the packages exist.
 
 To publish by hand in an emergency, `VERSION=1.2.3 PUBLISH=1
-./scripts/npm-pack.sh` still works; it just cannot attach provenance, because
+bash scripts/npm-pack.sh` still works; it just cannot attach provenance, because
 that requires a CI identity.
 
 Never skip the rehearsal. `make test-publish` runs a throwaway Verdaccio

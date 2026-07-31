@@ -82,6 +82,11 @@ for platform in "${PLATFORMS[@]}"; do
   cp "$built" "$pkg_dir/bin/$binary"
   chmod +x "$pkg_dir/bin/$binary"
 
+  # Each platform package is published separately and is MIT-licensed in its
+  # own right, so it carries its own copy of the licence rather than relying on
+  # the launcher's.
+  cp LICENSE "$pkg_dir/LICENSE"
+
   cat > "$pkg_dir/package.json" <<EOF
 {
   "name": "${pkg_name}",

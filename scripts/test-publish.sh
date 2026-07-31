@@ -197,7 +197,10 @@ fi
 echo
 if [ "$FAILED" -eq 0 ]; then
   echo "All checks passed. This build is safe to publish for real:"
-  echo "  npm login && VERSION=<x.y.z> PUBLISH=1 ./scripts/npm-pack.sh"
+  echo "  npm login && VERSION=<x.y.z> PUBLISH=1 bash scripts/npm-pack.sh"
+  echo
+  echo "With 2FA on the account, npm asks for a one-time password per package,"
+  echo "so expect seven prompts."
   exit 0
 fi
 echo "Some checks failed. Do not publish this build."

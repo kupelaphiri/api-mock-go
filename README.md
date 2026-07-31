@@ -335,7 +335,7 @@ go build -o api-mock-go ./cmd/api-mock-go
 go test ./...
 gofmt -l . && go vet ./... && go test ./...
 go test -bench=. -benchmem -run=NONE ./...
-./scripts/build.sh
+bash scripts/build.sh
 go run ./cmd/api-mock-go --schema examples/openapi.yaml
 ```
 
@@ -359,7 +359,7 @@ thing still works under `--ignore-scripts`, and that omitting optional
 dependencies produces an error a reader can act on.
 
 When it passes, publish with `npm login && VERSION=x.y.z PUBLISH=1
-./scripts/npm-pack.sh`. Platform packages go first, so the launcher never
+bash scripts/npm-pack.sh`. Platform packages go first, so the launcher never
 resolves a version that does not exist yet.
 
 ## Roadmap
