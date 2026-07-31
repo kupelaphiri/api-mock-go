@@ -342,8 +342,25 @@ go run ./cmd/api-mock-go --schema examples/openapi.yaml
 The npm packages are assembled by `make npm-pack`, which needs Node 16+ on
 `PATH`. It builds the binaries, writes one platform package per target plus the
 launcher into `dist/npm/`, and smoke-tests the launcher on the host platform.
-`PUBLISH=1 ./scripts/npm-pack.sh` publishes them, platform packages first so the
-launcher never resolves a version that does not exist yet.
+
+Before publishing for real, rehearse it:
+
+```bash
+make test-publish
+```
+
+That runs a throwaway [Verdaccio](https://verdaccio.org) registry on localhost,
+publishes every package to it, and then installs `api-mock-go` from it the way a
+stranger would. It needs no npm account and never contacts the public registry.
+It checks the things a tarball install cannot: that npm resolves the correct
+platform package unaided, that it installs only that one rather than all six,
+that the binary survives the round trip with its executable bit, that the whole
+thing still works under `--ignore-scripts`, and that omitting optional
+dependencies produces an error a reader can act on.
+
+When it passes, publish with `npm login && VERSION=x.y.z PUBLISH=1
+./scripts/npm-pack.sh`. Platform packages go first, so the launcher never
+resolves a version that does not exist yet.
 
 ## Roadmap
 

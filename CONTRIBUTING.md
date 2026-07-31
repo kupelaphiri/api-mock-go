@@ -97,12 +97,25 @@ interpreted, which is usually the fastest way to see where things diverged.
 Maintainers only:
 
 ```bash
+make test-publish                              # rehearse against a local registry
 git tag v1.2.3 && git push --tags
-VERSION=1.2.3 PUBLISH=1 ./scripts/npm-pack.sh
+VERSION=1.2.3 PUBLISH=1 ./scripts/npm-pack.sh  # for real
 ```
+
+Never skip the rehearsal. `make test-publish` runs a throwaway Verdaccio
+registry on localhost and installs from it exactly as a user would, which is the
+only way to check that npm resolves the right platform package on its own —
+installing from a tarball cannot tell you that. An npm version, once published,
+cannot be republished.
 
 Platform packages publish before the launcher, so the launcher never resolves a
 version that does not exist yet.
+
+The platform packages live under a scope (`@kupelaphiri` by default) declared in
+[npm/package.json](npm/package.json)'s `optionalDependencies`. That is the single
+source of truth: `scripts/npm-pack.sh` reads the scope from there, and the
+launcher finds its own binary by matching the current platform against the same
+list. Changing the scope means editing those six lines and nothing else.
 
 ## License
 

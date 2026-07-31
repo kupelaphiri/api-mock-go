@@ -28,6 +28,15 @@ require node
 VERSION="${VERSION:-$(node -p "require('./npm/package.json').version")}"
 VERSION="${VERSION#v}"
 
+# The scope for the platform packages, read from the launcher's own
+# optionalDependencies so that npm/package.json stays the single source of
+# truth. A personal scope such as @kupelaphiri needs no npm organisation: any
+# npm account owns the scope matching its username.
+SCOPE="$(node -p "Object.keys(require('./npm/package.json').optionalDependencies)[0].split('/')[0]")"
+
+# Name of the platform package for a given GOOS/GOARCH.
+platform_pkg() { echo "${SCOPE}/api-mock-go-${1}-${2}"; }
+
 PLATFORMS=(
   darwin/amd64
   darwin/arm64
@@ -58,7 +67,8 @@ for platform in "${PLATFORMS[@]}"; do
   GOOS="${platform%/*}"
   GOARCH="${platform#*/}"
 
-  pkg_dir="$OUT/@api-mock-go/${GOOS}-${GOARCH}"
+  pkg_name="$(platform_pkg "$GOOS" "$GOARCH")"
+  pkg_dir="$OUT/${pkg_name}"
   mkdir -p "$pkg_dir/bin"
 
   binary="api-mock-go"
@@ -73,7 +83,7 @@ for platform in "${PLATFORMS[@]}"; do
 
   cat > "$pkg_dir/package.json" <<EOF
 {
-  "name": "@api-mock-go/${GOOS}-${GOARCH}",
+  "name": "${pkg_name}",
   "version": "${VERSION}",
   "description": "api-mock-go binary for ${GOOS}/${GOARCH}",
   "license": "MIT",
@@ -89,7 +99,7 @@ for platform in "${PLATFORMS[@]}"; do
 EOF
 
   cat > "$pkg_dir/README.md" <<EOF
-# @api-mock-go/${GOOS}-${GOARCH}
+# ${pkg_name}
 
 The api-mock-go binary for ${GOOS}/${GOARCH}.
 
@@ -133,24 +143,30 @@ echo "Assembled ${#PLATFORMS[@]} platform packages and the launcher in $OUT"
 # machine. Only possible when a matching platform package was just built.
 host_os=$(go env GOOS)
 host_arch=$(go env GOARCH)
-host_pkg="$OUT/@api-mock-go/${host_os}-${host_arch}"
+host_name="$(platform_pkg "$host_os" "$host_arch")"
+host_pkg="$OUT/${host_name}"
 if [ -d "$host_pkg" ]; then
   echo
   echo "Smoke test on ${host_os}/${host_arch}:"
-  mkdir -p "$launcher/node_modules/@api-mock-go"
-  ln -sfn "$(cd "$host_pkg" && pwd)" "$launcher/node_modules/@api-mock-go/${host_os}-${host_arch}"
+  mkdir -p "$launcher/node_modules/${SCOPE}"
+  ln -sfn "$(cd "$host_pkg" && pwd)" "$launcher/node_modules/${host_name}"
   node "$launcher/bin/api-mock-go.js" --version
   rm -rf "$launcher/node_modules"
 fi
 
 if [ "${PUBLISH:-}" = "1" ]; then
   echo
-  echo "Publishing to npm. Platform packages go first, so the launcher never"
-  echo "resolves a version that does not exist yet."
+  echo "Publishing to ${NPM_REGISTRY:-the npm registry}. Platform packages go"
+  echo "first, so the launcher never resolves a version that does not exist yet."
+  registry_args=()
+  if [ -n "${NPM_REGISTRY:-}" ]; then
+    registry_args=(--registry "$NPM_REGISTRY")
+  fi
   for platform in "${PLATFORMS[@]}"; do
-    (cd "$OUT/@api-mock-go/${platform%/*}-${platform#*/}" && npm publish --access public)
+    (cd "$OUT/$(platform_pkg "${platform%/*}" "${platform#*/}")" \
+      && npm publish --access public "${registry_args[@]}")
   done
-  (cd "$launcher" && npm publish --access public)
+  (cd "$launcher" && npm publish --access public "${registry_args[@]}")
   echo
   echo "Published api-mock-go ${VERSION}"
 else

@@ -61,6 +61,10 @@ dist: ## Cross-compile every released platform into dist/
 npm-pack: ## Assemble the npm packages into dist/npm/
 	bash scripts/npm-pack.sh
 
+.PHONY: test-publish
+test-publish: ## Rehearse a release against a throwaway local npm registry
+	bash scripts/test-publish.sh
+
 .PHONY: run
 run: build ## Run against the bundled example spec
 	./$(BINARY) --schema examples/openapi.yaml --cors

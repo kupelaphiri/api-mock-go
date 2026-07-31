@@ -10,6 +10,11 @@
 
 const { spawn } = require("node:child_process");
 
+// The platform packages are listed in our own optionalDependencies, so the
+// scope lives in exactly one place — package.json — and changing it there is
+// enough. Nothing here needs to know what the scope is called.
+const manifest = require("../package.json");
+
 // Node's platform and architecture names differ from Go's.
 const GOOS = { darwin: "darwin", linux: "linux", win32: "windows" };
 const GOARCH = { x64: "amd64", arm64: "arm64" };
@@ -20,7 +25,14 @@ function target() {
   if (!os || !arch) {
     return null;
   }
-  return { os, arch, pkg: `@api-mock-go/${os}-${arch}` };
+  const suffix = `-${os}-${arch}`;
+  const pkg = Object.keys(manifest.optionalDependencies ?? {}).find((name) =>
+    name.endsWith(suffix),
+  );
+  if (!pkg) {
+    return null;
+  }
+  return { os, arch, pkg };
 }
 
 function resolveBinary() {
