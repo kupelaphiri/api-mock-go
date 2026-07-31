@@ -83,22 +83,15 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
-      # Assembles the launcher and every platform package, then smoke-tests the
-      # launcher by running it on this host.
-      - run: bash scripts/npm-pack.sh
-
-      - name: Check the launcher starts a server through npm
-        run: |
-          cd dist/npm/api-mock-go
-          mkdir -p node_modules/@api-mock-go
-          ln -s ../../../@api-mock-go/linux-amd64 node_modules/@api-mock-go/linux-amd64
-          node bin/api-mock-go.js --schema ../../../examples/openapi.yaml --port 3999 --quiet &
-          for _ in $(seq 1 20); do
-            curl -sf http://127.0.0.1:3999/__mock/routes >/dev/null && break
-            sleep 0.25
-          done
-          curl -sf http://127.0.0.1:3999/v1/posts | head -c 200
-          echo
-          kill %1
+      # Publishes every package to a throwaway local registry and installs from
+      # it, which is the only way to check that npm resolves the right platform
+      # package unaided. This is the same script a maintainer runs before a
+      # release, so the packaging is exercised on every pull request rather than
+      # only on the day it matters.
+      #
+      # It reads the scope from npm/package.json rather than hardcoding one: an
+      # earlier version of this job named the scope inline and silently rotted
+      # when the scope changed.
+      - run: bash scripts/test-publish.sh
