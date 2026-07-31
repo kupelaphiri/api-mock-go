@@ -40,10 +40,19 @@ jobs:
           # Without it, publishing fails with a 401 no matter how the token is set.
           registry-url: "https://registry.npmjs.org"
 
-      - name: Use an npm new enough for provenance
+      # Trusted publishing needs npm 11.5.1+; provenance alone needs 9.5+. The
+      # runner's bundled npm is usually older than both, so upgrade here. Note
+      # this is a throwaway CI machine: never run this on a workstation, where
+      # npm replacing its own dependency tree can fail halfway.
+      - name: Use an npm new enough for trusted publishing
         run: |
           npm install -g npm@latest
-          npm --version
+          version=$(npm --version)
+          echo "npm ${version}"
+          major=${version%%.*}
+          if [ "$major" -lt 11 ]; then
+            echo "::warning::npm ${version} predates trusted publishing; a token will be required."
+          fi
 
       - name: Work out the version
         id: version
@@ -83,6 +92,21 @@ jobs:
       - name: Rehearse the release against a local registry
         run: bash scripts/test-publish.sh
 
+      # Two ways to authenticate, and the workflow supports both:
+      #
+      #   Trusted publishing (preferred) -- configure this repository and
+      #   workflow as a trusted publisher in each package's settings on
+      #   npmjs.com. Authentication then uses the short-lived OIDC token minted
+      #   by "id-token: write", there is no NPM_TOKEN secret to leak or rotate,
+      #   and npm attaches provenance on its own. It can only be configured
+      #   once a package exists, so the very first release still needs a token.
+      #
+      #   NPM_TOKEN -- a granular access token with write access to
+      #   api-mock-go and the @kupela scope. npm is restricting tokens that
+      #   bypass 2FA, so treat this as the bootstrap path, not the destination.
+      #
+      # Setting NODE_AUTH_TOKEN to an absent secret leaves it empty, which npm
+      # ignores in favour of OIDC.
       - name: Publish to npm
         if: github.ref_type == 'tag' && !inputs.dry_run
         env:

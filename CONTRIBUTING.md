@@ -113,10 +113,23 @@ npm records which workflow run, from which commit, built each tarball, and shows
 a verified badge on the package page. That matters more here than for most
 packages, because what we ship is a prebuilt binary that nobody can read.
 
-It needs one repository secret, `NPM_TOKEN` — an npm **granular access token**
-with write access to the `api-mock-go` package and the platform scope. A
-classic *automation* token also works. Both bypass 2FA, which is why a normal
-login token will not do.
+There are two ways for the workflow to authenticate.
+
+**Trusted publishing**, which is where this should end up. Add this repository
+and workflow as a trusted publisher in each package's settings on npmjs.com.
+Authentication then uses a short-lived OIDC token minted by the workflow's
+`id-token: write` permission: no secret to leak, rotate or forget, and npm
+attaches provenance without being asked. It needs npm 11.5.1+ and Node 22.14+,
+which the workflow arranges. The catch is that a trusted publisher can only be
+configured for a package that already exists, so it cannot be used for a first
+release.
+
+**`NPM_TOKEN`**, for that first release. A granular access token with write
+access to `api-mock-go` and the `@kupela` scope, stored as a repository secret.
+npm is [restricting tokens that bypass
+2FA](https://gh.io/npm-gat-bypass2fa-deprecation), so treat this as the
+bootstrap path rather than the destination, and switch to trusted publishing
+once the packages exist.
 
 To publish by hand in an emergency, `VERSION=1.2.3 PUBLISH=1
 ./scripts/npm-pack.sh` still works; it just cannot attach provenance, because
