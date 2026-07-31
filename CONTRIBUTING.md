@@ -94,13 +94,33 @@ interpreted, which is usually the fastest way to see where things diverged.
 
 ## Releasing
 
-Maintainers only:
+Maintainers only. Releases run from CI, not from a laptop:
 
 ```bash
-make test-publish                              # rehearse against a local registry
-git tag v1.2.3 && git push --tags
-VERSION=1.2.3 PUBLISH=1 ./scripts/npm-pack.sh  # for real
+make test-publish                     # rehearse against a local registry
+# bump "version" in npm/package.json, commit it
+git tag v1.2.3 && git push --tags     # the tag triggers .github/workflows/release.yml
 ```
+
+The workflow re-runs the tests, rehearses the release against a throwaway
+registry, publishes all seven packages, and attaches the binaries and
+`SHA256SUMS` to a GitHub release. It refuses to run if the tag and the version
+in `npm/package.json` disagree.
+
+Publishing from CI is what makes [npm
+provenance](https://docs.npmjs.com/generating-provenance-statements) possible:
+npm records which workflow run, from which commit, built each tarball, and shows
+a verified badge on the package page. That matters more here than for most
+packages, because what we ship is a prebuilt binary that nobody can read.
+
+It needs one repository secret, `NPM_TOKEN` — an npm **granular access token**
+with write access to the `api-mock-go` package and the platform scope. A
+classic *automation* token also works. Both bypass 2FA, which is why a normal
+login token will not do.
+
+To publish by hand in an emergency, `VERSION=1.2.3 PUBLISH=1
+./scripts/npm-pack.sh` still works; it just cannot attach provenance, because
+that requires a CI identity.
 
 Never skip the rehearsal. `make test-publish` runs a throwaway Verdaccio
 registry on localhost and installs from it exactly as a user would, which is the

@@ -158,15 +158,22 @@ if [ "${PUBLISH:-}" = "1" ]; then
   echo
   echo "Publishing to ${NPM_REGISTRY:-the npm registry}. Platform packages go"
   echo "first, so the launcher never resolves a version that does not exist yet."
-  registry_args=()
+  publish_args=(--access public)
   if [ -n "${NPM_REGISTRY:-}" ]; then
-    registry_args=(--registry "$NPM_REGISTRY")
+    publish_args+=(--registry "$NPM_REGISTRY")
+  fi
+  # Provenance signs the tarball against the workflow run that produced it, so
+  # anyone can verify these binaries came from this repository at this commit.
+  # It only works from a CI with an OIDC identity, so it is opt-in rather than
+  # the default: a laptop publish would simply fail.
+  if [ "${PROVENANCE:-}" = "1" ]; then
+    publish_args+=(--provenance)
   fi
   for platform in "${PLATFORMS[@]}"; do
     (cd "$OUT/$(platform_pkg "${platform%/*}" "${platform#*/}")" \
-      && npm publish --access public "${registry_args[@]}")
+      && npm publish "${publish_args[@]}")
   done
-  (cd "$launcher" && npm publish --access public "${registry_args[@]}")
+  (cd "$launcher" && npm publish "${publish_args[@]}")
   echo
   echo "Published api-mock-go ${VERSION}"
 else
