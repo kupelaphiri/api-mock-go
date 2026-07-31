@@ -35,11 +35,11 @@
     "node": ">=16"
   },
   "optionalDependencies": {
-    "@kupelaphiri/api-mock-go-darwin-amd64": "0.1.0",
-    "@kupelaphiri/api-mock-go-darwin-arm64": "0.1.0",
-    "@kupelaphiri/api-mock-go-linux-amd64": "0.1.0",
-    "@kupelaphiri/api-mock-go-linux-arm64": "0.1.0",
-    "@kupelaphiri/api-mock-go-windows-amd64": "0.1.0",
-    "@kupelaphiri/api-mock-go-windows-arm64": "0.1.0"
+    "@kupela/api-mock-go-darwin-amd64": "0.1.0",
+    "@kupela/api-mock-go-darwin-arm64": "0.1.0",
+    "@kupela/api-mock-go-linux-amd64": "0.1.0",
+    "@kupela/api-mock-go-linux-arm64": "0.1.0",
+    "@kupela/api-mock-go-windows-amd64": "0.1.0",
+    "@kupela/api-mock-go-windows-arm64": "0.1.0"
   }
 }

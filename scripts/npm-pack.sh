@@ -30,8 +30,9 @@ VERSION="${VERSION#v}"
 
 # The scope for the platform packages, read from the launcher's own
 # optionalDependencies so that npm/package.json stays the single source of
-# truth. A personal scope such as @kupelaphiri needs no npm organisation: any
-# npm account owns the scope matching its username.
+# truth. A personal scope such as @kupela needs no npm organisation: any npm
+# account owns the scope matching its username -- so this must stay in step
+# with the npm username, which is not necessarily the GitHub one.
 SCOPE="$(node -p "Object.keys(require('./npm/package.json').optionalDependencies)[0].split('/')[0]")"
 
 # Name of the platform package for a given GOOS/GOARCH.

@@ -131,7 +131,7 @@ cannot be republished.
 Platform packages publish before the launcher, so the launcher never resolves a
 version that does not exist yet.
 
-The platform packages live under a scope (`@kupelaphiri` by default) declared in
+The platform packages live under a scope (`@kupela` by default) declared in
 [npm/package.json](npm/package.json)'s `optionalDependencies`. That is the single
 source of truth: `scripts/npm-pack.sh` reads the scope from there, and the
 launcher finds its own binary by matching the current platform against the same
