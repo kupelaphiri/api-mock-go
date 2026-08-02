@@ -113,23 +113,21 @@ npm records which workflow run, from which commit, built each tarball, and shows
 a verified badge on the package page. That matters more here than for most
 packages, because what we ship is a prebuilt binary that nobody can read.
 
-There are two ways for the workflow to authenticate.
-
-**Trusted publishing**, which is where this should end up. Add this repository
-and workflow as a trusted publisher in each package's settings on npmjs.com.
+The workflow authenticates by **trusted publishing**. Each of the seven
+packages — `api-mock-go` and the six `@kupela/api-mock-go-*` — names this
+repository and `release.yml` as its publisher in its settings on npmjs.com.
 Authentication then uses a short-lived OIDC token minted by the workflow's
 `id-token: write` permission: no secret to leak, rotate or forget, and npm
 attaches provenance without being asked. It needs npm 11.5.1+ and Node 22.14+,
-which the workflow arranges. The catch is that a trusted publisher can only be
-configured for a package that already exists, so it cannot be used for a first
-release.
+which the workflow arranges.
 
-**`NPM_TOKEN`**, for that first release. A granular access token with write
-access to `api-mock-go` and the `@kupela` scope, stored as a repository secret.
-npm is [restricting tokens that bypass
-2FA](https://gh.io/npm-gat-bypass2fa-deprecation), so treat this as the
-bootstrap path rather than the destination, and switch to trusted publishing
-once the packages exist.
+There is deliberately no `NPM_TOKEN`. setup-node writes an `.npmrc` that reads
+`_authToken=${NODE_AUTH_TOKEN}`, so wiring that to a secret which does not
+exist leaves an empty token, and npm answers `ENEEDAUTH` instead of falling
+back to OIDC. Leaving it unset is what makes trusted publishing work.
+
+A trusted publisher can only be configured for a package that already exists,
+so a brand new package still needs one manual publish before CI can take over.
 
 To publish by hand in an emergency, `VERSION=1.2.3 PUBLISH=1
 bash scripts/npm-pack.sh` still works; it just cannot attach provenance, because

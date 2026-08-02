@@ -92,25 +92,22 @@ jobs:
       - name: Rehearse the release against a local registry
         run: bash scripts/test-publish.sh
 
-      # Two ways to authenticate, and the workflow supports both:
+      # Authentication is trusted publishing: each package on npmjs.com names
+      # this repository and this workflow file as its publisher, and npm then
+      # accepts the short-lived OIDC token minted by "id-token: write". There is
+      # no secret to leak or rotate, and provenance comes with it.
       #
-      #   Trusted publishing (preferred) -- configure this repository and
-      #   workflow as a trusted publisher in each package's settings on
-      #   npmjs.com. Authentication then uses the short-lived OIDC token minted
-      #   by "id-token: write", there is no NPM_TOKEN secret to leak or rotate,
-      #   and npm attaches provenance on its own. It can only be configured
-      #   once a package exists, so the very first release still needs a token.
+      # There is deliberately no NODE_AUTH_TOKEN here. setup-node writes an
+      # .npmrc reading _authToken=${NODE_AUTH_TOKEN}, so pointing it at a
+      # secret that does not exist leaves an empty token — which npm reports as
+      # ENEEDAUTH rather than falling back to OIDC. Leaving it unset is what
+      # lets OIDC be used at all.
       #
-      #   NPM_TOKEN -- a granular access token with write access to
-      #   api-mock-go and the @kupela scope. npm is restricting tokens that
-      #   bypass 2FA, so treat this as the bootstrap path, not the destination.
-      #
-      # Setting NODE_AUTH_TOKEN to an absent secret leaves it empty, which npm
-      # ignores in favour of OIDC.
+      # Trusted publishing can only be configured once a package exists, so a
+      # brand new package still needs a one-off manual publish first.
       - name: Publish to npm
         if: github.ref_type == 'tag' && !inputs.dry_run
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
           PUBLISH: "1"
           PROVENANCE: "1"
