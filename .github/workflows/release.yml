@@ -1,0 +1,140 @@
+name: Release
+
+# Tagging v1.2.3 publishes that version to npm and attaches the binaries to a
+# GitHub release. Everything is built here rather than on anyone's laptop, so
+# the published tarballs can be signed with provenance: npm records which
+# workflow run, from which commit, produced each one, and shows a verified
+# badge on the package page. For a tool that ships prebuilt binaries, that is
+# the answer to "how do I know this blob matches the source?".
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # create the GitHub release
+  id-token: write # mint the OIDC token that provenance is built on
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # so the binaries can be stamped from the tag
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          # Required: this writes the .npmrc that reads NODE_AUTH_TOKEN.
+          # Without it, publishing fails with a 401 no matter how the token is set.
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs npm 11.5.1+; provenance alone needs 9.5+. The
+      # runner's bundled npm is usually older than both, so upgrade here. Note
+      # this is a throwaway CI machine: never run this on a workstation, where
+      # npm replacing its own dependency tree can fail halfway.
+      - name: Use an npm new enough for trusted publishing
+        run: |
+          npm install -g npm@latest
+          version=$(npm --version)
+          echo "npm ${version}"
+          major=${version%%.*}
+          if [ "$major" -lt 11 ]; then
+            echo "::warning::npm ${version} predates trusted publishing; a token will be required."
+          fi
+
+      - name: Work out the version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(node -p "require('./npm/package.json').version")"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${version}"
+
+      # A tag that disagrees with the manifest means one of them is wrong, and
+      # guessing which would publish a version nobody can reproduce.
+      - name: Check the tag matches npm/package.json
+        if: github.ref_type == 'tag'
+        run: |
+          manifest="$(node -p "require('./npm/package.json').version")"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$manifest" != "$tag" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match npm/package.json (${manifest})."
+            echo "Bump the version in npm/package.json, commit it, then tag that commit."
+            exit 1
+          fi
+          echo "tag and manifest agree on ${tag}"
+
+      - name: Test
+        run: |
+          gofmt -l . | tee /tmp/unformatted
+          test ! -s /tmp/unformatted
+          go vet ./...
+          go test -race ./...
+
+      # The same rehearsal a maintainer runs locally: publish to a throwaway
+      # registry and install from it. Catches a broken package before the
+      # irreversible step, since an npm version can never be republished.
+      - name: Rehearse the release against a local registry
+        run: bash scripts/test-publish.sh
+
+      # Two ways to authenticate, and the workflow supports both:
+      #
+      #   Trusted publishing (preferred) -- configure this repository and
+      #   workflow as a trusted publisher in each package's settings on
+      #   npmjs.com. Authentication then uses the short-lived OIDC token minted
+      #   by "id-token: write", there is no NPM_TOKEN secret to leak or rotate,
+      #   and npm attaches provenance on its own. It can only be configured
+      #   once a package exists, so the very first release still needs a token.
+      #
+      #   NPM_TOKEN -- a granular access token with write access to
+      #   api-mock-go and the @kupela scope. npm is restricting tokens that
+      #   bypass 2FA, so treat this as the bootstrap path, not the destination.
+      #
+      # Setting NODE_AUTH_TOKEN to an absent secret leaves it empty, which npm
+      # ignores in favour of OIDC.
+      - name: Publish to npm
+        if: github.ref_type == 'tag' && !inputs.dry_run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISH: "1"
+          PROVENANCE: "1"
+        run: bash scripts/npm-pack.sh
+
+      - name: Build the release binaries
+        if: github.ref_type != 'tag' || inputs.dry_run
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: bash scripts/build.sh
+
+      - name: Create the GitHub release
+        if: github.ref_type == 'tag' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag \
+            dist/api-mock-go-* dist/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ steps.version.outputs.version }}
+          path: dist/
+          retention-days: 14

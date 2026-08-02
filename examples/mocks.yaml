@@ -1,0 +1,90 @@
+# A hand-written route list, mocked with:
+#
+#   api-mock-go --config examples/mocks.yaml
+#
+# Reach for this instead of an OpenAPI spec when you want exact control over
+# each response body.
+
+# Server defaults. Any flag you pass on the command line wins over these.
+port: 3000
+host: 127.0.0.1
+cors: true
+
+routes:
+  - path: /api/users
+    method: GET
+    response:
+      - id: 1
+        name: Jane Doe
+        email: jane@example.com
+      - id: 2
+        name: John Smith
+        email: john@example.com
+
+  # `method` also accepts a list, when one body suits several verbs.
+  - path: /api/users
+    method: [POST, PUT]
+    status: 201
+    response:
+      id: 3
+      name: New User
+      success: true
+
+  # `:id` captures a path parameter, so any id matches this route.
+  - path: /api/users/:id
+    method: GET
+    response:
+      id: 1
+      name: Jane Doe
+      email: jane@example.com
+      role: admin
+
+  - path: /api/users/:id
+    method: DELETE
+    status: 204
+
+  # A static segment outranks a parameter, so /api/users/me lands here rather
+  # than on /api/users/:id, whatever the order of declaration.
+  - path: /api/users/me
+    method: GET
+    response:
+      id: 99
+      name: Current User
+      email: me@example.com
+
+  # `delay` simulates latency, for testing loading states and timeouts.
+  - path: /api/slow
+    method: GET
+    delay: 2s
+    response:
+      message: That took a while.
+
+  # `status` and `headers` are yours to set, including error responses.
+  - path: /api/protected
+    method: GET
+    status: 401
+    headers:
+      WWW-Authenticate: Bearer
+    response:
+      error: unauthorized
+      message: Provide a bearer token.
+
+  # `body` is written verbatim, for responses that are not JSON.
+  - path: /api/health
+    method: GET
+    headers:
+      Content-Type: text/plain; charset=utf-8
+    body: ok
+
+  # `file` serves a file's contents, resolved relative to this config.
+  - path: /api/products
+    method: GET
+    file: ./products.json
+
+  # `*` is a catch-all: it matches this prefix and everything below it.
+  - path: /api/legacy/*
+    method: GET
+    status: 410
+    response:
+      error: gone
+      message: The legacy API was removed. Use /api/users.

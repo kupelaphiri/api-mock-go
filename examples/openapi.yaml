@@ -1,0 +1,248 @@
+# An OpenAPI 3.0 spec, mocked with:
+#
+#   api-mock-go --schema examples/openapi.yaml --cors
+#
+# Response bodies are synthesised from the schemas below. Where an operation
+# documents an `example`, that is used verbatim instead.
+openapi: 3.0.3
+
+info:
+  title: Blog API
+  version: 1.0.0
+  description: A small API exercising the schema features api-mock-go understands.
+
+servers:
+  # The path here becomes the mock's base path, so routes are served under /v1.
+  - url: https://api.example.com/v1
+
+paths:
+  /posts:
+    get:
+      operationId: listPosts
+      summary: List posts
+      responses:
+        "200":
+          description: A page of posts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Post"
+                  meta:
+                    $ref: "#/components/schemas/PageMeta"
+
+    post:
+      operationId: createPost
+      summary: Create a post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "201":
+          description: The created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{postId}:
+    get:
+      operationId: getPost
+      summary: Fetch one post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: No such post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      operationId: updatePost
+      summary: Update a post
+      responses:
+        "200":
+          description: The updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+    delete:
+      operationId: deletePost
+      summary: Delete a post
+      responses:
+        "204":
+          description: Deleted
+
+  /posts/{postId}/comments:
+    get:
+      operationId: listComments
+      summary: List a post's comments
+      responses:
+        "200":
+          description: The comments
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 3
+                items:
+                  $ref: "#/components/schemas/Comment"
+
+  /authors/me:
+    get:
+      operationId: getCurrentAuthor
+      summary: Fetch the authenticated author
+      responses:
+        "200":
+          description: The author
+          content:
+            application/json:
+              # A literal example always wins over schema generation.
+              example:
+                id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                name: Ada Lovelace
+                email: ada@example.com
+                postCount: 42
+              schema:
+                $ref: "#/components/schemas/Author"
+
+  /health:
+    get:
+      operationId: health
+      summary: Liveness probe
+      responses:
+        "200":
+          description: Service is up
+          content:
+            text/plain:
+              example: ok
+
+components:
+  schemas:
+    Post:
+      type: object
+      required: [id, title, body, author, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        slug:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [published, draft, archived]
+        tags:
+          type: array
+          items:
+            type: string
+        viewCount:
+          type: integer
+          minimum: 0
+        author:
+          $ref: "#/components/schemas/Author"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PostInput:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    Author:
+      # allOf members are merged into a single object.
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        - type: object
+          properties:
+            email:
+              type: string
+              format: email
+            avatarUrl:
+              type: string
+              format: uri
+            postCount:
+              type: integer
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+        author:
+          $ref: "#/components/schemas/Author"
+        # A self-reference: expansion stops at the recursion rather than
+        # looping forever.
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+        createdAt:
+          type: string
+          format: date-time
+
+    PageMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        perPage:
+          type: integer
+          default: 25
+        total:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
