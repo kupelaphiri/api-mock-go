@@ -17,7 +17,7 @@ make run      # serve examples/openapi.yaml on :3000
 
 ```bash
 go test ./...
-go run ./cmd/api-mock-go --schema examples/openapi.yaml
+go run ./cmd/api-mock-go examples/openapi.yaml
 ```
 
 ## Layout
@@ -89,7 +89,7 @@ and specs from real APIs that mock badly — those make the best bug reports.
 
 Please include the spec or config that reproduces it, trimmed to the smallest
 version that still misbehaves, plus what you expected and what you got.
-`api-mock-go --schema yourfile.yaml --routes` prints how the file was
+`api-mock-go yourfile.yaml --routes` prints how the file was
 interpreted, which is usually the fastest way to see where things diverged.
 
 ## Releasing

@@ -18,18 +18,28 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 REPO="$PWD"
 
-PORT="${PORT:-4873}"
-REGISTRY="http://localhost:${PORT}"
 WORK="${TMPDIR:-/tmp}/api-mock-go-release-test"
 
 command -v node >/dev/null 2>&1 || { echo "error: node is required" >&2; exit 1; }
 command -v go >/dev/null 2>&1 || { echo "error: go is required" >&2; exit 1; }
 
+# Ask the OS for a free port rather than assuming verdaccio's default is
+# available. A registry left over from an earlier run would otherwise answer
+# the readiness check, and publishing into it fails with EPUBLISHCONFLICT --
+# or worse, succeeds against stale packages and reports a false pass.
+PORT="${PORT:-$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')}"
+REGISTRY="http://localhost:${PORT}"
+
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; FAILED=1; }
 FAILED=0
 
+# npx spawns verdaccio as a child, so killing the npx process alone leaves the
+# registry running and holding its port. Signal the whole process group.
 cleanup() {
+  if [ -n "${VERDACCIO_PGID:-}" ]; then
+    kill -TERM -"$VERDACCIO_PGID" 2>/dev/null || true
+  fi
   if [ -n "${VERDACCIO_PID:-}" ]; then
     kill "$VERDACCIO_PID" 2>/dev/null || true
     wait "$VERDACCIO_PID" 2>/dev/null || true
@@ -61,9 +71,12 @@ publish:
 EOF
 
 echo "Starting a local registry on ${REGISTRY} ..."
-npx --yes verdaccio@6 --config "$WORK/registry/config.yaml" --listen "$PORT" \
+# setsid puts verdaccio and everything npx spawns into their own process group,
+# so cleanup can take the whole tree down rather than orphaning the registry.
+setsid npx --yes verdaccio@6 --config "$WORK/registry/config.yaml" --listen "$PORT" \
   > "$WORK/registry/verdaccio.log" 2>&1 &
 VERDACCIO_PID=$!
+VERDACCIO_PGID=$(ps -o pgid= -p "$VERDACCIO_PID" 2>/dev/null | tr -d ' ' || true)
 
 for _ in $(seq 1 120); do
   if curl -sf -m 2 "$REGISTRY/-/ping" >/dev/null 2>&1; then break; fi

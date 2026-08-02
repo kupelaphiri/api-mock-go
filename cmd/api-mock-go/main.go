@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,15 +21,15 @@ import (
 const usage = `api-mock-go — blazing-fast mock APIs from OpenAPI specs
 
 Usage:
-  api-mock-go --schema <file> [options]
-  api-mock-go --config <file> [options]
+  api-mock-go <file> [options]
 
 The input may be an OpenAPI 3.x spec, a Swagger 2.0 spec, or an api-mock-go
-route list, written as YAML or JSON. The format is detected from its contents,
-so --schema and --config are interchangeable.
+route list, written as YAML or JSON. The format is detected from its contents.
+The file may also be named with --schema or --config, which are older spellings
+of the same thing and interchangeable with each other.
 
 Options:
-  --schema <file>    Source file to mock (OpenAPI spec or route list)
+  --schema <file>    Source file to mock; the same as naming it directly
   --config <file>    Alias for --schema
   --port <number>    Port to listen on (default 3000)
   --host <address>   Address to bind to (default 127.0.0.1; use 0.0.0.0 to
@@ -43,8 +44,9 @@ Options:
   --help             Print this message
 
 Examples:
-  api-mock-go --schema openapi.yaml --port 4000 --cors
-  api-mock-go --config mocks.yaml --delay 200ms
+  api-mock-go openapi.yaml
+  api-mock-go openapi.yaml --port 4000 --cors
+  api-mock-go mocks.yaml --delay 200ms
   api-mock-go --schema petstore.json --routes
 `
 
@@ -76,11 +78,23 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		showVersion = fs.Bool("version", false, "print the version and exit")
 	)
 
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return nil
+	// flag stops at the first non-flag argument, so a single Parse would read
+	// `api-mock-go openapi.yaml --cors` as the file plus one stray word and
+	// start without CORS. Parsing until nothing is left, setting each
+	// positional aside as it appears, accepts flags on either side of the file.
+	var positional []string
+	for rest := args; ; {
+		if err := fs.Parse(rest); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return nil
+			}
+			return err
 		}
-		return err
+		if fs.NArg() == 0 {
+			break
+		}
+		positional = append(positional, fs.Arg(0))
+		rest = fs.Args()[1:]
 	}
 
 	if *showVersion {
@@ -88,7 +102,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 
-	source, err := resolveSource(fs, *schema, *configPath)
+	source, err := resolveSource(positional, *schema, *configPath)
 	if err != nil {
 		return err
 	}
@@ -158,21 +172,30 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 
 // resolveSource picks the input file from --schema, --config, or a bare
 // positional argument.
-func resolveSource(fs *flag.FlagSet, schema, configPath string) (string, error) {
+func resolveSource(positional []string, schema, configPath string) (string, error) {
 	if schema != "" && configPath != "" && schema != configPath {
 		return "", fmt.Errorf("--schema (%s) and --config (%s) disagree; pass only one", schema, configPath)
+	}
+	if len(positional) > 1 {
+		return "", fmt.Errorf("only one source file can be mocked, but %d were given: %s",
+			len(positional), strings.Join(positional, ", "))
 	}
 
 	source := schema
 	if source == "" {
 		source = configPath
 	}
-	if source == "" && fs.NArg() > 0 {
-		source = fs.Arg(0)
+	if len(positional) == 1 {
+		if source == "" {
+			source = positional[0]
+		} else if positional[0] != source {
+			return "", fmt.Errorf("%s was given as an argument but %s was given as a flag; pass only one",
+				positional[0], source)
+		}
 	}
 	if source == "" {
 		return "", errors.New("no source file given\n\n" +
-			"Try: api-mock-go --schema openapi.yaml\n" +
+			"Try: api-mock-go openapi.yaml\n" +
 			"Run api-mock-go --help for all options")
 	}
 

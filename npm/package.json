@@ -1,6 +1,6 @@
 {
   "name": "api-mock-go",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Blazing-fast mock APIs from OpenAPI specs. A single Go binary, installed through npm.",
   "keywords": [
     "mock",
@@ -35,11 +35,11 @@
     "node": ">=16"
   },
   "optionalDependencies": {
-    "@kupela/api-mock-go-darwin-amd64": "0.1.0",
-    "@kupela/api-mock-go-darwin-arm64": "0.1.0",
-    "@kupela/api-mock-go-linux-amd64": "0.1.0",
-    "@kupela/api-mock-go-linux-arm64": "0.1.0",
-    "@kupela/api-mock-go-windows-amd64": "0.1.0",
-    "@kupela/api-mock-go-windows-arm64": "0.1.0"
+    "@kupela/api-mock-go-darwin-amd64": "0.2.0",
+    "@kupela/api-mock-go-darwin-arm64": "0.2.0",
+    "@kupela/api-mock-go-linux-amd64": "0.2.0",
+    "@kupela/api-mock-go-linux-arm64": "0.2.0",
+    "@kupela/api-mock-go-windows-amd64": "0.2.0",
+    "@kupela/api-mock-go-windows-arm64": "0.2.0"
   }
 }

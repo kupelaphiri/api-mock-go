@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -115,10 +114,27 @@ func TestSourceCanBeGivenThreeWays(t *testing.T) {
 		{"--schema", spec, "--routes"},
 		{"--config", spec, "--routes"},
 		{"--routes", spec},
+		// Flags after the file matter most: this is the order people type, and
+		// a plain flag.Parse stops at the file and drops everything after it.
+		{spec, "--routes"},
 	} {
 		if _, stderr, err := exec(t, args...); err != nil {
 			t.Errorf("%v: %v\n%s", args, err, stderr)
 		}
+	}
+}
+
+// A flag following the source file must still take effect, rather than being
+// silently discarded — the failure that would leave a server on the wrong port.
+func TestFlagsAfterTheSourceFileApply(t *testing.T) {
+	spec := writeFile(t, "openapi.yaml", miniSpec)
+
+	_, stderr, err := exec(t, spec, "--base-path", "/api/v2", "--routes")
+	if err != nil {
+		t.Fatalf("run: %v\n%s", err, stderr)
+	}
+	if !strings.Contains(stderr, "/api/v2") {
+		t.Errorf("--base-path after the source file was ignored:\n%s", stderr)
 	}
 }
 
@@ -160,7 +176,7 @@ func TestNoSourceErrorSuggestsAFix(t *testing.T) {
 	if err == nil {
 		t.Fatal("running with no arguments succeeded, want an error")
 	}
-	for _, want := range []string{"--schema", "--help"} {
+	for _, want := range []string{"api-mock-go openapi.yaml", "--help"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not point the user at %q", err, want)
 		}
@@ -381,16 +397,8 @@ func TestConfigFilePortPrecedenceEndToEnd(t *testing.T) {
 func TestResolveSource(t *testing.T) {
 	existing := writeFile(t, "spec.yaml", miniSpec)
 
-	// resolveSource reads positional arguments from the flag set, so each case
-	// needs one that has parsed the arguments in question.
-	parse := func(args ...string) *flag.FlagSet {
-		fs := flag.NewFlagSet("test", flag.ContinueOnError)
-		fs.SetOutput(io.Discard)
-		if err := fs.Parse(args); err != nil {
-			t.Fatalf("parse %v: %v", args, err)
-		}
-		return fs
-	}
+	// resolveSource takes the positional arguments run collected while parsing.
+	parse := func(args ...string) []string { return args }
 
 	t.Run("schema", func(t *testing.T) {
 		got, err := resolveSource(parse(), existing, "")
@@ -436,6 +444,27 @@ func TestResolveSource(t *testing.T) {
 	t.Run("nonexistent", func(t *testing.T) {
 		if _, err := resolveSource(parse(), "/no/such/file.yaml", ""); err == nil {
 			t.Error("a missing file was accepted, want an error")
+		}
+	})
+
+	// Naming the same file twice is harmless; naming two different ones is the
+	// same mistake as --schema and --config disagreeing.
+	t.Run("positional matching a flag", func(t *testing.T) {
+		got, err := resolveSource(parse(existing), existing, "")
+		if err != nil || got != existing {
+			t.Errorf("got %q, %v; want %q", got, err, existing)
+		}
+	})
+
+	t.Run("positional conflicting with a flag", func(t *testing.T) {
+		if _, err := resolveSource(parse(existing), "other.yaml", ""); err == nil {
+			t.Error("a positional disagreeing with --schema was accepted, want an error")
+		}
+	})
+
+	t.Run("two positionals", func(t *testing.T) {
+		if _, err := resolveSource(parse(existing, existing), "", ""); err == nil {
+			t.Error("two source files were accepted, want an error")
 		}
 	})
 }

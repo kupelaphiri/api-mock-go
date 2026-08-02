@@ -4,11 +4,11 @@ Blazing-fast mock APIs from OpenAPI specs. A single Go binary, installed through
 npm.
 
 ```bash
-npx api-mock-go --schema openapi.yaml
+npx api-mock-go openapi.yaml
 ```
 
 ```
-  api-mock-go v0.1.0
+  api-mock-go v0.2.0
   source  openapi.yaml (openapi)
   listen  http://127.0.0.1:3000
   routes  8
@@ -48,7 +48,7 @@ config to write, no Node runtime in the request path.
 ```bash
 npm install -D api-mock-go
 # or run it without installing
-npx api-mock-go --schema openapi.yaml
+npx api-mock-go openapi.yaml
 ```
 
 The binaries ship as per-platform optional dependencies, so npm downloads only
@@ -66,7 +66,7 @@ go install github.com/kupelaphiri/api-mock-go/cmd/api-mock-go@latest
 Any OpenAPI 3.x or Swagger 2.0 document works, as YAML or JSON:
 
 ```bash
-api-mock-go --schema openapi.yaml --port 4000 --cors
+api-mock-go openapi.yaml --port 4000 --cors
 ```
 
 Each operation becomes one route. For each, api-mock-go picks the response to
@@ -85,7 +85,7 @@ serve and builds its body:
 Try it against the bundled spec:
 
 ```bash
-api-mock-go --schema examples/openapi.yaml --cors
+api-mock-go examples/openapi.yaml --cors
 curl http://127.0.0.1:3000/v1/posts
 ```
 
@@ -172,7 +172,7 @@ routes:
 ```
 
 ```bash
-api-mock-go --config mocks.yaml
+api-mock-go mocks.yaml
 ```
 
 A runnable version of the above is in
@@ -197,7 +197,8 @@ as defaults. A flag you pass on the command line always wins.
 ## CLI
 
 ```
-api-mock-go --schema <file>     Source file to mock (OpenAPI spec or route list)
+api-mock-go <file>              Source file to mock (OpenAPI spec or route list)
+api-mock-go --schema <file>     Names the source file; the same as passing it
 api-mock-go --config <file>     Alias for --schema
 api-mock-go --port <number>     Port to listen on (default 3000)
 api-mock-go --host <address>    Address to bind to (default 127.0.0.1)
@@ -336,7 +337,7 @@ go test ./...
 gofmt -l . && go vet ./... && go test ./...
 go test -bench=. -benchmem -run=NONE ./...
 bash scripts/build.sh
-go run ./cmd/api-mock-go --schema examples/openapi.yaml
+go run ./cmd/api-mock-go examples/openapi.yaml
 ```
 
 The npm packages are assembled by `make npm-pack`, which needs Node 16+ on
