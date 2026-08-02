@@ -1,0 +1,18 @@
+# Normalise text files to LF, in the repository and in the working tree.
+#
+# Without this, a git configured with core.autocrlf=true — the default on
+# Windows, and what a \\wsl.localhost checkout from the Windows side uses —
+# rewrites every file with CRLF. Go tooling treats those carriage returns as
+# content, so `gofmt -l .` reports the entire tree as unformatted and CI fails
+# on a diff nobody made.
+* text=auto eol=lf
+
+# Batch files are the one thing that genuinely needs CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never rewrite binaries.
+*.png  binary
+*.jpg  binary
+*.gz   binary
+*.exe  binary
