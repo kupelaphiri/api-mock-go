@@ -18,7 +18,7 @@ import (
 	"github.com/kupelaphiri/api-mock-go/internal/server"
 )
 
-const usage = `api-mock-go — blazing-fast mock APIs from OpenAPI specs
+const usage = `api-mock-go — mock APIs from OpenAPI specs
 
 Usage:
   api-mock-go <file> [options]

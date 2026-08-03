@@ -1,7 +1,6 @@
 # api-mock-go
 
-Blazing-fast mock APIs from OpenAPI specs. A single Go binary, installed through
-npm.
+Mock APIs from OpenAPI specs. A single Go binary, installed through npm.
 
 ```bash
 npx api-mock-go openapi.yaml
@@ -36,9 +35,9 @@ config to write, no Node runtime in the request path.
 - **Response bodies that look real** — the generator reads your schemas and
   fills fields by name and format, so you get `"jane@example.com"` and
   `"2024-01-15T09:30:00Z"`, not `"string"` in every slot.
-- **Fast, and cheap to keep running** — bodies are serialised once at startup,
-  so serving a request is a route lookup and a write. Route matching allocates
-  nothing.
+- **Work happens once, at startup** — bodies are serialised when the spec is
+  loaded, so serving a request is a route lookup and a write rather than a
+  marshal. Route matching allocates nothing.
 - **Installs like a JS tool, runs like a Go one** — one binary, no runtime
   dependencies, nothing fetched by a postinstall script.
 - **Works everywhere** — macOS, Linux and Windows, on x64 and arm64.
@@ -100,6 +99,35 @@ curl http://127.0.0.1:3000/v1/posts
 | Constraints | `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems` |
 | Formats | `date-time`, `date`, `time`, `email`, `uuid`, `uri`, `hostname`, `ipv4`, `ipv6`, `byte`, `password` and more |
 | Field names | `email`, `createdAt`, `avatarUrl`, `page`, `total`, `price`, `firstName` … resolve to values that suit the name, in camelCase, snake_case or kebab-case |
+
+The `Post` schema in [examples/openapi.yaml](examples/openapi.yaml) mocks as:
+
+```json
+{
+  "id": "5f4d3c2b-1a09-4e8d-9c7b-6a5f4e3d2c1b",
+  "title": "Example title",
+  "slug": "example-slug",
+  "body": "Example body text.",
+  "status": "published",
+  "tags": ["string", "string"],
+  "viewCount": 10,
+  "author": {
+    "id": "5f4d3c2b-1a09-4e8d-9c7b-6a5f4e3d2c1b",
+    "name": "Jane Doe",
+    "email": "user@example.com",
+    "avatarUrl": "https://example.com/resource",
+    "postCount": 10
+  },
+  "createdAt": "2024-01-15T09:30:00Z",
+  "updatedAt": "2024-01-15T09:30:00Z"
+}
+```
+
+`title`, `slug`, `body` and `name` are filled from their field names; `id`,
+`email`, `avatarUrl` and the timestamps from their formats; `status` from the
+enum; `viewCount` from the name and its `minimum`. A format always outranks a
+field name, which is why `avatarUrl` is a generic URL. `tags` has neither, so
+its items fall back to `"string"`.
 
 Generated values are deterministic: the same spec always produces the same
 bodies, so a snapshot test will not flake.
@@ -229,92 +257,16 @@ without authentication, so keep it off untrusted networks.
   response whatever you send.
 - **Query strings** do not affect matching.
 
-## Benchmarks
+## Performance
 
-Measured on an Intel Core Ultra 7 155H (22 threads, WSL2), serving
-`examples/openapi.yaml` to 50 concurrent keep-alive workers for 5 seconds. The
-load generator shared the same machine, so these are a floor rather than a
-ceiling.
+Bodies are serialised once when the spec is loaded, so a request costs a route
+lookup and a write rather than a marshal, and route matching allocates nothing.
+That is a description of the design, not a measurement.
 
-| Endpoint | Body | Throughput | p50 | p99 |
-| --- | --- | --- | --- | --- |
-| `/v1/health` | 2 B | **59,095 req/sec** | 511 µs | 3.75 ms |
-| `/v1/posts/x` | 410 B | **58,898 req/sec** | 514 µs | 3.67 ms |
-| `/v1/posts` | 874 B | **58,382 req/sec** | 506 µs | 3.86 ms |
-
-Throughput barely moves with body size, because bodies are serialised once at
-startup — a request costs a route lookup and a write, not a marshal.
-
-The request log is the most expensive thing in the request path. The numbers
-above are with `--quiet`; with logging on, `/v1/health` serves 37,119 req/sec.
-Reach for `--quiet` when the mock is under load in CI.
-
-In-process, from `make bench`:
-
-```
-BenchmarkLookupStatic-22       48.19 ns/op     0 B/op    0 allocs/op
-BenchmarkLookupParams-22       99.06 ns/op     0 B/op    0 allocs/op
-BenchmarkServeStaticRoute-22   502.8 ns/op    48 B/op    3 allocs/op
-BenchmarkServeParamRoute-22    508.7 ns/op    48 B/op    3 allocs/op
-BenchmarkServeWithLogging-22    1553 ns/op   176 B/op   14 allocs/op
-```
-
-### Against Prism
-
-[Prism](https://github.com/stoplightio/prism) is the closest comparison: it also
-mocks an OpenAPI spec directly. Both were run on the same machine, against the
-same two spec files, with the same load generator.
-
-| | api-mock-go | Prism 5.16.0 |
-| --- | --- | --- |
-| **Small spec** (8 operations) | | |
-| Ready to serve | **0.04 s** | 1.49 s |
-| Throughput | **51,950 req/sec** | 780 req/sec |
-| Latency p50 / p99 | **565 µs** / 4.2 ms | 54 ms / 141 ms |
-| Memory | **8.6 MB** | 158 MB |
-| **Large spec** (290 paths, 580 operations, 530 schemas) | | |
-| Ready to serve | **0.09 s** | 1.83 s |
-| Throughput | **57,131 req/sec** | 264 req/sec |
-| Latency p50 / p99 | **515 µs** / 4.3 ms | 134 ms / 2.58 s |
-| Memory | **15.2 MB** | 179 MB |
-| **Install** | | |
-| npm packages | **2** | 180 |
-| Installed size | **5.8 MB** | 69 MB |
-
-Two caveats, in fairness. Prism was run on Node 22 while it declares a
-requirement of Node ≥ 24.18, which npm warned about; and Prism validates every
-incoming request against the spec, which api-mock-go does not do at all. Some of
-the gap is Prism doing more work, not just doing it more slowly.
-
-### Generated body quality
-
-The same schema, from the same spec, at the same moment:
-
-```jsonc
-// api-mock-go
-{"title": "Example title", "slug": "example-slug", "body": "Example body text.",
- "author": {"name": "Jane Doe", "email": "user@example.com"}, "viewCount": 10}
-
-// Prism
-{"title": "string", "slug": "string", "body": "string",
- "author": {"name": "string", "email": "user@example.com"}, "viewCount": 0}
-```
-
-Both resolve `format: email` and `format: uuid`. The difference is field names:
-api-mock-go reads `title`, `slug`, `body` and `name` and fills them with
-something that looks like the thing they are named after. A mock full of
-`"string"` is fine for checking that a field exists, and poor for building a UI
-against.
-
-Note also that Prism serves `/posts` where api-mock-go serves `/v1/posts`:
-api-mock-go applies the base path from the spec's `servers` URL, Prism does not.
-
-### Reproducing these numbers
-
-The generator and load harness are not in the repository — they were throwaway
-scripts. What is reproducible from here is `make bench`, and the load figures
-came from 50 concurrent keep-alive workers over 5 seconds against a locally
-built binary.
+There are no published numbers here yet, deliberately. `make bench` runs the
+in-process benchmarks, but the load-testing harness behind any end-to-end
+figure is not yet reproducible from this repository, and a number nobody else
+can reproduce is not worth printing. It will land with the harness.
 
 ## Building from source
 

@@ -1,7 +1,7 @@
 # api-mock-go
 
-Blazing-fast mock APIs from OpenAPI specs. A single Go binary, installed
-through npm — no Go toolchain and no Node runtime in the request path.
+Mock APIs from OpenAPI specs. A single Go binary, installed through npm — no Go
+toolchain and no Node runtime in the request path.
 
 ```bash
 npx api-mock-go openapi.yaml

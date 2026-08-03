@@ -1,7 +1,7 @@
 {
   "name": "api-mock-go",
   "version": "0.2.0",
-  "description": "Blazing-fast mock APIs from OpenAPI specs. A single Go binary, installed through npm.",
+  "description": "Mock APIs from OpenAPI specs. A single Go binary, installed through npm.",
   "keywords": [
     "mock",
     "mock-server",
